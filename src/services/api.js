@@ -1,7 +1,7 @@
 import axios from 'axios';
 import { toast } from 'react-toastify';
 
-const API_URL = import.meta.env.VITE_API_URL || 'https://apidemobcrm.nsdcorporation.uz';
+const API_URL = import.meta.env.VITE_API_URL || 'https://apibcrm.nsdcorporation.uz';
 
 const api = axios.create({
   baseURL: API_URL,
@@ -68,7 +68,7 @@ api.interceptors.response.use(
         localStorage.removeItem('access_token');
         localStorage.removeItem('refresh_token');
         localStorage.removeItem('user');
-        
+
         // Only redirect if not already on login page to avoid loops
         if (!window.location.pathname.includes('/login')) {
           toast.error('Seans muddati tugadi. Iltimos, qaytadan kiring.');
@@ -79,10 +79,10 @@ api.interceptors.response.use(
     }
 
     // Professional Error Handling
-    const errorMessage = response?.data?.detail || 
-                        response?.data?.message || 
-                        (response?.data && typeof response.data === 'object' ? Object.values(response.data).flat()[0] : null) ||
-                        'Xatolik yuz berdi. Iltimos, qaytadan urinib ko\'ring.';
+    const errorMessage = response?.data?.detail ||
+      response?.data?.message ||
+      (response?.data && typeof response.data === 'object' ? Object.values(response.data).flat()[0] : null) ||
+      'Xatolik yuz berdi. Iltimos, qaytadan urinib ko\'ring.';
 
     // Don't show toast for 401/403 (handled above) or 5xx on reports (backend issue, shown in UI)
     const isReportEndpoint = originalRequest?.url?.includes('/api/reports/');

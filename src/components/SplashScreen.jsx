@@ -26,8 +26,8 @@ const SplashScreen = ({ onDone }) => {
             transition={{ delay: 0.2, duration: 0.5 }}
             className="text-center flex flex-col items-center"
           >
-            <img src="/person_logo.jpg" alt="logo" className="w-32 h-32 object-cover rounded-full mb-3" />
-            <p className="text-white text-2xl font-black tracking-tight">Shaxrixon Balon</p>
+            <img src="/bcrm_logo.png" alt="logo" className="w-32 h-32 object-cover rounded-full mb-3" />
+            <p className="text-white text-2xl font-black tracking-tight">Balon Center</p>
             <p className="text-blue-200 text-sm mt-1 font-medium">CRM Tizimi</p>
           </motion.div>
 
