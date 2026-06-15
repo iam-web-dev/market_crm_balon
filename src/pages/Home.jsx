@@ -238,14 +238,15 @@ const Home = () => {
                   {recentSales.map((sale) => {
                     const saleUzs = parseFloat(sale.total_uzs || sale.total || 0);
                     const saleUsd = parseFloat(sale.total_usd || 0);
+                    const customerName = sale.customer_name || 'Noma\'lum mijoz';
                     return (
                       <div key={sale.id} className="flex items-center justify-between py-2 border-b border-gray-50 last:border-0">
                         <div className="flex items-center gap-3">
                           <div className="w-8 h-8 bg-blue-50 rounded-full flex items-center justify-center font-bold text-[#1447E6] text-xs shrink-0">
-                            {sale.customer_name?.charAt(0) || 'M'}
+                            {customerName.charAt(0)}
                           </div>
                           <div>
-                            <p className="text-xs font-semibold text-gray-800 leading-tight">{sale.customer_name}</p>
+                            <p className="text-xs font-semibold text-gray-800 leading-tight">{customerName}</p>
                             <p className="text-[10px] text-gray-400">{new Date(sale.created_at).toLocaleDateString()}</p>
                           </div>
                         </div>
