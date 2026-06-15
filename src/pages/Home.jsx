@@ -235,20 +235,26 @@ const Home = () => {
               <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-5">
                 <h2 className="text-sm font-bold text-gray-700 mb-3">So'nggi sotuvlar</h2>
                 <div className="space-y-2">
-                  {recentSales.map((sale) => (
-                    <div key={sale.id} className="flex items-center justify-between py-2 border-b border-gray-50 last:border-0">
-                      <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 bg-blue-50 rounded-full flex items-center justify-center font-bold text-[#1447E6] text-xs shrink-0">
-                          {sale.customer_name?.charAt(0) || 'M'}
+                  {recentSales.map((sale) => {
+                    const saleUzs = parseFloat(sale.total_uzs || sale.total || 0);
+                    const saleUsd = parseFloat(sale.total_usd || 0);
+                    return (
+                      <div key={sale.id} className="flex items-center justify-between py-2 border-b border-gray-50 last:border-0">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 bg-blue-50 rounded-full flex items-center justify-center font-bold text-[#1447E6] text-xs shrink-0">
+                            {sale.customer_name?.charAt(0) || 'M'}
+                          </div>
+                          <div>
+                            <p className="text-xs font-semibold text-gray-800 leading-tight">{sale.customer_name}</p>
+                            <p className="text-[10px] text-gray-400">{new Date(sale.created_at).toLocaleDateString()}</p>
+                          </div>
                         </div>
-                        <div>
-                          <p className="text-xs font-semibold text-gray-800 leading-tight">{sale.customer_name}</p>
-                          <p className="text-[10px] text-gray-400">{new Date(sale.created_at).toLocaleDateString()}</p>
-                        </div>
+                        <p className="text-xs font-bold text-gray-900 shrink-0">
+                          {saleUsd > 0 ? `$${saleUsd.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : `${saleUzs.toLocaleString('uz-UZ')} so'm`}
+                        </p>
                       </div>
-                      <p className="text-xs font-bold text-gray-900 shrink-0">{parseFloat(sale.total || 0).toLocaleString()} so'm</p>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
               </Link>
