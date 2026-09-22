@@ -1,5 +1,78 @@
 @import "tailwindcss";
 
+:root {
+  color-scheme: light;
+  --color-bg: #f7f7f8;
+  --color-surface: #ffffff;
+  --color-border: #e6e6e9;
+  --color-text: #17171a;
+  --color-text-muted: #6b6b72;
+  --color-primary: #16181d;
+  --color-primary-contrast: #ffffff;
+  --color-accent: #2f6feb;
+  --color-success: #1f9254;
+  --color-success-bg: #e6f6ec;
+  --color-warning: #b8860b;
+  --color-warning-bg: #fdf3dc;
+  --color-info: #2f6feb;
+  --color-info-bg: #e8f0fe;
+  --color-danger: #c0392b;
+  --color-danger-bg: #fbe9e7;
+  --color-neutral: #6b6b72;
+  --color-neutral-bg: #eeeef0;
+}
+
 .wheel-col-inner::-webkit-scrollbar {
   display: none;
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes backdrop-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes panel-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.animate-fade-in {
+  animation: fade-in 0.2s ease-out both;
+}
+
+.animate-backdrop-in {
+  animation: backdrop-in 0.15s ease-out both;
+}
+
+.animate-panel-in {
+  animation: panel-in 0.18s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-fade-in,
+  .animate-backdrop-in,
+  .animate-panel-in {
+    animation: none;
+  }
 }
