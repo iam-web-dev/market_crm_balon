@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import {
   FiPlus, FiMinus, FiSearch, FiPackage, FiTruck, FiX, FiCheck,
-  FiLoader, FiTrash2, FiEdit
+  FiLoader, FiTrash2, FiEdit, FiAlertTriangle
 } from 'react-icons/fi';
 import { useQueries } from '@tanstack/react-query';
 import { usePurchases, usePurchaseDetail, useCreatePurchase, useUpdatePurchase, useDeletePurchase } from '../hooks/usePurchases';
@@ -15,10 +15,10 @@ const fmt = (num) => parseFloat(num || 0).toLocaleString('uz-UZ');
 const getProductCurrency = (product) => (product?.currency || 'uzs').toLowerCase();
 
 const getProductCostPrice = (product) => {
-  // Tan narx kiritilgan bo'lsa o'shani, aks holda sotuv narxini boshlang'ich qiymat qilamiz
+  // Tan narx kiritilgan bo'lsa o'shani qaytaramiz, aks holda bo'sh qoldiramiz (sotuv narxini qo'ymaymiz)
   const cost = parseFloat(product?.cost_price || 0);
-  if (cost > 0) return cost;
-  return parseFloat(product?.sale_price || 0);
+  if (cost > 0) return product.cost_price;
+  return '';
 };
 
 const Purchases = () => {
@@ -26,7 +26,7 @@ const Purchases = () => {
   const [modalMode, setModalMode] = useState(null); // 'create' | 'edit' | null
   const [editPurchaseId, setEditPurchaseId] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const [cart, setCart] = useState([]); // { id, name, quantity, costPrice }
+  const [cart, setCart] = useState([]); // { id, name, quantity, costPrice, currency, salePrice }
   const [productSearch, setProductSearch] = useState('');
   const [note, setNote] = useState('');
 
@@ -62,10 +62,11 @@ const Purchases = () => {
   const addToCart = (product) => {
     const costPrice = getProductCostPrice(product);
     const currency = getProductCurrency(product);
+    const salePrice = parseFloat(product?.sale_price || 0);
     const existing = cart.find(item => item.id === product.id);
     if (existing) {
       setCart(cart.map(item =>
-        item.id === product.id ? { ...item, quantity: (parseInt(item.quantity) || 0) + 1, costPrice, currency } : item
+        item.id === product.id ? { ...item, quantity: (parseInt(item.quantity) || 0) + 1 } : item
       ));
     } else {
       setCart([...cart, {
@@ -73,7 +74,8 @@ const Purchases = () => {
         name: product.name,
         quantity: 1,
         costPrice,
-        currency
+        currency,
+        salePrice
       }]);
     }
   };
@@ -93,8 +95,9 @@ const Purchases = () => {
         id: item.product,
         name: item.product_name,
         quantity: item.quantity,
-        costPrice: parseFloat(item.cost_price || 0),
-        currency: (item.currency || 'uzs').toLowerCase()
+        costPrice: parseFloat(item.cost_price || 0) > 0 ? item.cost_price : '',
+        currency: (item.currency || 'uzs').toLowerCase(),
+        salePrice: parseFloat(item.sale_price || 0)
       }))
     );
     setNote(purchase.note || '');
@@ -107,6 +110,36 @@ const Purchases = () => {
       toast.error('Kamida bitta mahsulot tanlang');
       return;
     }
+
+    if (modalMode === 'create') {
+      // 1. Tan narx kiritilishi majburiy tekshiruvi
+      const invalidItem = cart.find(item => {
+        const cost = parseFloat(item.costPrice);
+        return item.costPrice === '' || item.costPrice === null || item.costPrice === undefined || isNaN(cost) || cost <= 0;
+      });
+
+      if (invalidItem) {
+        toast.error(`"${invalidItem.name}" uchun tan narxni kiritish majburiy!`);
+        return;
+      }
+
+      // 2. Tan narx sotuv narxiga teng yoki undan katta bo'lsa ogohlantirish
+      const highCostItem = cart.find(item => {
+        const cost = parseFloat(item.costPrice || 0);
+        const sale = parseFloat(item.salePrice || 0);
+        return sale > 0 && cost >= sale;
+      });
+
+      if (highCostItem) {
+        const saleFmt = highCostItem.currency === 'usd' ? `$${fmt(highCostItem.salePrice)}` : `${fmt(highCostItem.salePrice)} so'm`;
+        const costFmt = highCostItem.currency === 'usd' ? `$${fmt(highCostItem.costPrice)}` : `${fmt(highCostItem.costPrice)} so'm`;
+        const confirmSave = window.confirm(
+          `Diqqat: "${highCostItem.name}" ning tan narxi (${costFmt}) sotuv narxiga (${saleFmt}) teng yoki undan katta!\n\nBaribir xaridni saqlamoqchimisiz?`
+        );
+        if (!confirmSave) return;
+      }
+    }
+
     try {
       if (modalMode === 'create') {
         await createPurchaseMutation.mutateAsync({
@@ -271,19 +304,25 @@ const Purchases = () => {
                     {products.map(p => {
                       const productCurrency = getProductCurrency(p);
                       const productCostPrice = getProductCostPrice(p);
+                      const productSalePrice = parseFloat(p.sale_price || 0);
                       return (
                         <button
                           key={p.id}
                           onClick={() => addToCart(p)}
-                          className="shrink-0 w-32 p-3 bg-gray-50 border border-gray-100 rounded-2xl hover:border-[#1447E6] hover:shadow-sm transition-all active:scale-95 text-left"
+                          className="shrink-0 w-36 p-3 bg-gray-50 border border-gray-100 rounded-2xl hover:border-[#1447E6] hover:shadow-sm transition-all active:scale-95 text-left"
                         >
                           <div className="w-9 h-9 bg-blue-50 rounded-xl flex items-center justify-center text-[#1447E6] mb-2">
                             <FiPackage className="w-4 h-4" />
                           </div>
                           <p className="text-[10px] font-bold text-gray-900 truncate">{p.name}</p>
-                          <p className="text-[9px] text-gray-400 mt-0.5">Ombor: {p.quantity} {p.unit}</p>
-                          <p className={`text-[10px] font-black mt-1 ${productCurrency === 'usd' ? 'text-emerald-600' : 'text-[#1447E6]'}`}>
-                            {productCurrency === 'usd' ? `$${fmt(productCostPrice)}` : `${fmt(productCostPrice)} so'm`}
+                          <p className="text-[9px] text-gray-400 mt-0.5">Ombor: {p.quantity} {p.unit || 'dona'}</p>
+                          <p className="text-[9px] text-gray-500 mt-0.5">
+                            Sotuv: {productCurrency === 'usd' ? `$${fmt(productSalePrice)}` : `${fmt(productSalePrice)} so'm`}
+                          </p>
+                          <p className={`text-[10px] font-bold mt-1 ${productCostPrice ? (productCurrency === 'usd' ? 'text-emerald-600' : 'text-[#1447E6]') : 'text-gray-400 italic'}`}>
+                            {productCostPrice
+                              ? (productCurrency === 'usd' ? `Tan: $${fmt(productCostPrice)}` : `Tan: ${fmt(productCostPrice)} so'm`)
+                              : "Tan narx yo'q"}
                           </p>
                         </button>
                       );
@@ -298,52 +337,116 @@ const Purchases = () => {
                       <h3 className="text-sm font-bold text-gray-900">Tanlangan mahsulotlar</h3>
                       <span className="bg-blue-50 text-[#1447E6] px-2.5 py-1 rounded-xl text-xs font-bold">{cart.length} ta</span>
                     </div>
-                    <div className="divide-y divide-gray-50">
-                      {cart.map(item => (
-                        <div key={item.id} className="px-4 py-3">
-                          {/* Name + price + delete */}
-                          <div className="flex items-center justify-between mb-2.5">
-                            <div className="flex-1 min-w-0 pr-3">
-                              <p className="font-bold text-gray-900 text-sm truncate">{item.name}</p>
-                              <p className={`text-xs font-bold ${item.currency === 'usd' ? 'text-emerald-600' : 'text-[#1447E6]'}`}>
-                                {item.currency === 'usd' ? `$${fmt(item.costPrice)}` : `${fmt(item.costPrice)} so'm`}
-                              </p>
+                    <div className="divide-y divide-gray-100">
+                      {cart.map(item => {
+                        const costNum = parseFloat(item.costPrice);
+                        const saleNum = parseFloat(item.salePrice || 0);
+                        const isMissingCost = item.costPrice === '' || item.costPrice === null || item.costPrice === undefined || isNaN(costNum) || costNum <= 0;
+                        const isHighCost = !isMissingCost && saleNum > 0 && costNum >= saleNum;
+
+                        return (
+                          <div key={item.id} className="px-4 py-3.5 bg-white transition-colors">
+                            {/* Name + Sale Price + Delete */}
+                            <div className="flex items-start justify-between mb-2">
+                              <div className="flex-1 min-w-0 pr-3">
+                                <p className="font-bold text-gray-900 text-sm truncate">{item.name}</p>
+                                <p className="text-[11px] text-gray-500 mt-0.5">
+                                  Sotuv narxi: <span className="font-semibold text-gray-700">{item.currency === 'usd' ? `$${fmt(item.salePrice)}` : `${fmt(item.salePrice)} so'm`}</span>
+                                </p>
+                              </div>
+                              <button
+                                onClick={() => removeFromCart(item.id)}
+                                className="w-8 h-8 flex items-center justify-center text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-xl active:scale-90 transition-all shrink-0"
+                                title="O'chirish"
+                              >
+                                <FiX className="w-4 h-4" />
+                              </button>
                             </div>
-                            <button
-                              onClick={() => removeFromCart(item.id)}
-                              className="w-8 h-8 flex items-center justify-center text-gray-300 hover:text-red-400 active:scale-90 transition-all shrink-0"
-                            >
-                              <FiX className="w-4 h-4" />
-                            </button>
+
+                            {/* Inputs: Tan narx & Miqdor */}
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                              {/* Cost Price */}
+                              <div>
+                                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block mb-1">
+                                  Tan narx ({item.currency === 'usd' ? '$' : "so'm"}) <span className="text-red-500">*</span>
+                                </label>
+                                <div className="relative">
+                                  <input
+                                    type="number"
+                                    step="any"
+                                    min="0"
+                                    placeholder="Tan narxni kiriting..."
+                                    value={item.costPrice ?? ''}
+                                    onChange={(e) => {
+                                      const val = e.target.value;
+                                      setCart(cart.map(c => c.id === item.id ? { ...c, costPrice: val } : c));
+                                    }}
+                                    className={`w-full h-11 px-3 text-sm font-bold rounded-2xl outline-none border transition-all ${
+                                      isMissingCost
+                                        ? 'bg-red-50/40 border-red-300 text-red-900 focus:border-red-500 focus:ring-2 focus:ring-red-200'
+                                        : isHighCost
+                                        ? 'bg-amber-50/40 border-amber-300 text-amber-900 focus:border-amber-500 focus:ring-2 focus:ring-amber-200'
+                                        : 'bg-gray-50 border-gray-100 text-gray-900 focus:border-[#1447E6] focus:ring-2 focus:ring-[#1447E6]/20'
+                                    }`}
+                                  />
+                                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-gray-400 pointer-events-none">
+                                    {item.currency === 'usd' ? '$' : "so'm"}
+                                  </span>
+                                </div>
+                                {isMissingCost && (
+                                  <p className="text-[10px] text-red-500 font-medium mt-1">
+                                    * Tan narxni kiritish majburiy
+                                  </p>
+                                )}
+                              </div>
+
+                              {/* Quantity */}
+                              <div>
+                                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block mb-1">
+                                  Miqdor
+                                </label>
+                                <div className="flex items-center gap-1.5">
+                                  <button
+                                    type="button"
+                                    onClick={() => setCart(cart.map(c => c.id === item.id ? { ...c, quantity: Math.max(1, (parseInt(c.quantity) || 1) - 1) } : c))}
+                                    className="w-11 h-11 rounded-2xl bg-gray-100 flex items-center justify-center text-gray-600 hover:bg-red-50 hover:text-red-500 active:scale-90 transition-all shrink-0"
+                                  >
+                                    <FiMinus className="w-4 h-4" />
+                                  </button>
+                                  <input
+                                    type="number"
+                                    min="1"
+                                    value={item.quantity}
+                                    onChange={(e) => setCart(cart.map(c => c.id === item.id ? { ...c, quantity: e.target.value } : c))}
+                                    onBlur={(e) => {
+                                      const val = parseInt(e.target.value) || 1;
+                                      setCart(cart.map(c => c.id === item.id ? { ...c, quantity: val } : c));
+                                    }}
+                                    className="flex-1 min-w-0 h-11 text-center font-black text-gray-900 text-base bg-gray-50 rounded-2xl outline-none border border-gray-100 focus:border-[#1447E6]"
+                                  />
+                                  <button
+                                    type="button"
+                                    onClick={() => setCart(cart.map(c => c.id === item.id ? { ...c, quantity: (parseInt(c.quantity) || 1) + 1 } : c))}
+                                    className="w-11 h-11 rounded-2xl bg-[#1447E6] flex items-center justify-center text-white hover:bg-blue-700 active:scale-90 transition-all shrink-0"
+                                  >
+                                    <FiPlus className="w-4 h-4" />
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Warning when cost >= sale */}
+                            {isHighCost && (
+                              <div className="mt-2.5 px-3 py-2 bg-amber-50 border border-amber-200 rounded-xl flex items-center gap-2 text-amber-800 text-xs">
+                                <FiAlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+                                <p className="leading-tight">
+                                  <span className="font-bold">Ogohlantirish:</span> Tan narx ({item.currency === 'usd' ? `$${fmt(costNum)}` : `${fmt(costNum)} so'm`}) sotuv narxiga ({item.currency === 'usd' ? `$${fmt(saleNum)}` : `${fmt(saleNum)} so'm`}) teng yoki undan katta!
+                                </p>
+                              </div>
+                            )}
                           </div>
-                          {/* Big +/- quantity */}
-                          <div className="flex items-center gap-2">
-                            <button
-                              onClick={() => setCart(cart.map(c => c.id === item.id ? { ...c, quantity: Math.max(1, (parseInt(c.quantity) || 1) - 1) } : c))}
-                              className="w-11 h-11 rounded-2xl bg-gray-100 flex items-center justify-center text-gray-600 hover:bg-red-50 hover:text-red-500 active:scale-90 transition-all"
-                            >
-                              <FiMinus className="w-5 h-5" />
-                            </button>
-                            <input
-                              type="number"
-                              min="1"
-                              value={item.quantity}
-                              onChange={(e) => setCart(cart.map(c => c.id === item.id ? { ...c, quantity: e.target.value } : c))}
-                              onBlur={(e) => {
-                                const val = parseInt(e.target.value) || 1;
-                                setCart(cart.map(c => c.id === item.id ? { ...c, quantity: val } : c));
-                              }}
-                              className="flex-1 h-11 text-center font-black text-gray-900 text-lg bg-gray-50 rounded-2xl outline-none border border-gray-100 focus:border-[#1447E6]"
-                            />
-                            <button
-                              onClick={() => setCart(cart.map(c => c.id === item.id ? { ...c, quantity: (parseInt(c.quantity) || 1) + 1 } : c))}
-                              className="w-11 h-11 rounded-2xl bg-[#1447E6] flex items-center justify-center text-white hover:bg-blue-700 active:scale-90 transition-all"
-                            >
-                              <FiPlus className="w-5 h-5" />
-                            </button>
-                          </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   </div>
                 )}

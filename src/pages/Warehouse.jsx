@@ -142,7 +142,6 @@ const Warehouse = () => {
   useEffect(() => { setPage(1); }, [searchTerm]);
 
   const { data: productsData, isLoading: productsLoading } = useProducts({ search: searchTerm, page, ordering: 'quantity' });
-  const { data: allPagesData } = useProducts({ ordering: 'quantity', page: 1 });
   const { data: categoriesData, isLoading: categoriesLoading } = useCategories();
   const { data: lowStockData } = useLowStockProducts();
   const { data: singleProduct, isLoading: productLoading } = useProduct(selectedProduct?.id);
@@ -176,28 +175,15 @@ const Warehouse = () => {
   const lowStockRaw = lowStockData?.results || lowStockData || [];
   const lowStockCount = Array.isArray(lowStockRaw) ? lowStockRaw.length : 0;
 
-  // Haqiqiy mahsulotlardan hisoblash (backend totallari noto'g'ri bo'lishi mumkin)
-  const allRealProducts = allPagesData?.results || [];
-  const realAgg = {};
-  allRealProducts.forEach((p) => {
-    const cid = p.category;
-    if (!cid) return;
-    if (!realAgg[cid]) realAgg[cid] = { saleUzs: 0, saleUsd: 0, costUzs: 0, costUsd: 0 };
-    const qty = parseInt(p.quantity) || 0;
-    const isUsd = (p.currency || 'uzs').toLowerCase() === 'usd';
-    realAgg[cid][isUsd ? 'saleUsd' : 'saleUzs'] += parseFloat(p.sale_price || 0) * qty;
-    realAgg[cid][isUsd ? 'costUsd' : 'costUzs'] += parseFloat(p.cost_price || 0) * qty;
-  });
-
   const categoryStats = categories.map((c) => ({
     id: c.id,
     name: c.name,
     count: c.product_count ?? 0,
     quantity: parseInt(c.total_quantity) || 0,
-    saleUzs: realAgg[c.id] ? realAgg[c.id].saleUzs : (parseFloat(c.total_sale_price_uzs) || 0),
-    saleUsd: realAgg[c.id] ? realAgg[c.id].saleUsd : (parseFloat(c.total_sale_price_usd) || 0),
-    costUzs: realAgg[c.id] ? realAgg[c.id].costUzs : (parseFloat(c.total_cost_price_uzs) || 0),
-    costUsd: realAgg[c.id] ? realAgg[c.id].costUsd : (parseFloat(c.total_cost_price_usd) || 0),
+    saleUzs: parseFloat(c.total_sale_price_uzs) || 0,
+    saleUsd: parseFloat(c.total_sale_price_usd) || 0,
+    costUzs: parseFloat(c.total_cost_price_uzs) || 0,
+    costUsd: parseFloat(c.total_cost_price_usd) || 0,
     lowStock: 0,
   })).sort((a, b) => a.quantity - b.quantity);
 
@@ -213,15 +199,12 @@ const Warehouse = () => {
     selectedCategory ? { category: selectedCategory.id, ordering: 'quantity' } : {}
   );
 
-  // Haqiqiy mahsulotlar ma'lumotidan hisoblash (backend totallari noto'g'ri bo'lishi mumkin)
-  const catProducts = catProductsData?.results || [];
-  const catSaleUzs = catProducts.reduce((s, p) => (p.currency || 'uzs').toLowerCase() === 'uzs' ? s + parseFloat(p.sale_price || 0) * (parseInt(p.quantity) || 0) : s, 0);
-  const catSaleUsd = catProducts.reduce((s, p) => (p.currency || 'uzs').toLowerCase() === 'usd' ? s + parseFloat(p.sale_price || 0) * (parseInt(p.quantity) || 0) : s, 0);
-  // cost_price list endpointida bo'lmasligi mumkin — backend kategoriya totallari to'g'ri
-  const computedCostUzs = catProducts.reduce((s, p) => (p.currency || 'uzs').toLowerCase() === 'uzs' ? s + parseFloat(p.cost_price || 0) * (parseInt(p.quantity) || 0) : s, 0);
-  const computedCostUsd = catProducts.reduce((s, p) => (p.currency || 'uzs').toLowerCase() === 'usd' ? s + parseFloat(p.cost_price || 0) * (parseInt(p.quantity) || 0) : s, 0);
-  const catCostUzs = computedCostUzs > 0 ? computedCostUzs : (selectedCategory?.costUzs || 0);
-  const catCostUsd = computedCostUsd > 0 ? computedCostUsd : (selectedCategory?.costUsd || 0);
+  // Jamlarni to'g'ridan-to'g'ri kategoriya API ma'lumotlaridan olish (barcha mahsulotlar bo'yicha)
+  const currentCategoryData = categories.find(c => c.id === selectedCategory?.id) || selectedCategory;
+  const catSaleUzs = parseFloat(currentCategoryData?.total_sale_price_uzs ?? currentCategoryData?.saleUzs) || 0;
+  const catSaleUsd = parseFloat(currentCategoryData?.total_sale_price_usd ?? currentCategoryData?.saleUsd) || 0;
+  const catCostUzs = parseFloat(currentCategoryData?.total_cost_price_uzs ?? currentCategoryData?.costUzs) || 0;
+  const catCostUsd = parseFloat(currentCategoryData?.total_cost_price_usd ?? currentCategoryData?.costUsd) || 0;
 
   const getStatusCfg = (status) => statusConfig[status] || statusConfig.good;
 
