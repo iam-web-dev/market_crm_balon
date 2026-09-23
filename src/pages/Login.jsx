@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FiPhone, FiLock, FiEye, FiEyeOff } from 'react-icons/fi';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../hooks/useAuth';
 import { formatPhoneNumber, cleanPhoneNumber } from '../utils/phoneFormat';
 
 const Login = () => {
